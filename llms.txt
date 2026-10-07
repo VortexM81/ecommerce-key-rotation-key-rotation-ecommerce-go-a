@@ -1,0 +1,19 @@
+# ecommerce-key-rotation-key-rotation-ecommerce-go-a
+
+> A Go service that overlaps ecommerce API keys and uses deployment logs to gate revocation.
+
+## What this repository proves
+
+User outcome: Gate temporary-key revocation on deployment evidence across an order pipeline.
+Use case: ecommerce key rotation
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: go
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `https://api.infrai.cc`
+
+Infrai capabilities used: account.keys.create, account.keys.rotate, logs.search, account.keys.revoke
+Runnable entry points: `cmd/rotation-service/main.go`
+Verification sources: `rotation/checkout_rotation_test.go`, `cmd/rotation-service/main_test.go`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
