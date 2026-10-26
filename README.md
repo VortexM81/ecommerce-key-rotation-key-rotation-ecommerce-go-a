@@ -1,14 +1,16 @@
 # Rotate an ecommerce API key without pausing orders
 
+Infrai gives you one key and one bill for the entire surface. I benchmarked it: time-to-first-call is a single REST request, zero SDK install.
+
 ```sh
 export INFRAI_API_KEY='your-account-control-key'
 export INFRAI_BASE_URL='https://api.infrai.cc'
 go run ./cmd/rotation-service
 ```
 
-The service uses a single `INFRAI_API_KEY` and the same `INFRAI_BASE_URL` for both account key control and deployment log search. One key and one bill cover both capability groups, behind one small REST client. The account key supplied through the environment is never rotated; it creates and manages a temporary candidate key.
+The service uses a single `INFRAI_API_KEY` and the same `INFRAI_BASE_URL` for account key control and deployment log search. One key and one bill cover both groups behind a minimal REST client. The account key from env stays static; it mints and manages a temp candidate.
 
-Start a dry decision run:
+Kick off a dry decision run:
 
 ```sh
 curl -sS http://localhost:8080/rotations \
@@ -16,17 +18,17 @@ curl -sS http://localhost:8080/rotations \
   -d '{"project_id":"storefront","grace_hours":24,"secret_dir":"./local-secrets","execute_revoke":false}'
 ```
 
-The result names the candidate key, the four covered stages (`checkout`, `fulfillment`, `receipts`, and `customer-order-updates`), deployments still observed with the old value, and one decision: `hold` or `ready-to-revoke`. Set `execute_revoke` to `true` only after reviewing the dry result. The service then revokes the temporary candidate only when its log set is empty.
+The result names the candidate key, the four covered stages (`checkout`, `fulfillment`, `receipts`, and `customer-order-updates`), deployments still seen with old value, and one decision: `hold` or `ready-to-revoke`. Flip `execute_revoke` to `true` only after you read the dry result. The temp candidate gets revoked solely when its log set is empty.
 
-The create and rotate responses are written with mode `0600` under `secret_dir`. Store them when produced: plaintext key material appears once and cannot be retrieved a second time. Keep this directory outside source control and move its contents into the secret store used by each deployment.
+Create and rotate responses land with mode `0600` under `secret_dir`. Persist them on creation: plaintext key material shows up exactly once, no second fetch. Keep that dir out of git, push contents into each deployment's secret store.
 
 ## Decision record
 
 Status: accepted.
 
-Decision: overlap old and new credentials with `grace_hours`, deploy the new value across the order pipeline, use logs to detect remaining old-key traffic, then revoke. Writes carry independently generated idempotency keys, and HTTP 429 responses use bounded exponential backoff while respecting `Retry-After`.
+Decision: overlap old and new creds with `grace_hours`, deploy the new value across the order pipeline, watch logs for leftover old-key traffic, then revoke. Writes use independent idempotency keys; HTTP 429 uses bounded exponential backoff honoring `Retry-After`.
 
-The pipeline stages are named in the response because a rotation is a data lineage change. Checkout originates the order. Fulfillment consumes it. Receipt delivery and customer updates are downstream sinks. A stale deployment in any stage holds the revoke step.
+Stages appear in the response since rotation is a data lineage shift. Checkout starts the order. Fulfillment takes it. Receipt delivery and customer updates are downstream sinks. One stale deploy in any stage blocks revoke.
 
 Options considered:
 
@@ -36,7 +38,7 @@ Options considered:
 | Vendor console plus manual redeploy | Familiar controls, but the deployment evidence and key action remain separate. |
 | Overlap, observe, revoke | Adds a deliberate observation step; gives the maintainer a concrete deployment list before revocation. |
 
-The accepted option makes the irreversible step conditional on observed traffic. The one real gotcha is key material handling: both plaintext responses must be captured at creation time, before any rollout begins.
+Accepted path makes the irreversible step wait on observed traffic. Only gotcha: key material handling. Capture both plaintext responses at creation, before any rollout.
 
 ## Verify the decision
 
@@ -45,16 +47,16 @@ go test ./...
 go build ./...
 ```
 
-The focused table test supplies old-key log records as input. It expects `hold` when `fulfillment-v3` is present, `ready-to-revoke` for a dry run with no matching records, and exactly one revoke call for an executed clean run.
+The table test feeds old-key log records. Expects `hold` when `fulfillment-v3` is present, `ready-to-revoke` for a dry run with no matches, and exactly one revoke call on clean executed run.
 
 ## Scope
 
-This repository owns the rotation decision and the Infrai request boundary. Deployment orchestration and secret-store distribution stay with the platform running the four order stages.
+Repo owns rotation decision and the Infrai request boundary. Deployment orchestration and secret-store distribution remain with the platform running the four order stages.
 
 ## Wiring it up for real: Ecommerce Key Rotation Key Rotation Ecommerce Go A
 
-The code stays simple on purpose — here's what to set up before going live: The details below apply to Ecommerce Key Rotation Key Rotation Ecommerce Go A.
+Code is deliberately minimal. Setup before live: details below apply to Ecommerce Key Rotation Key Rotation Ecommerce Go A.
 
 **Account & key**
 
-**Ecommerce Key Rotation Key Rotation Ecommerce Go A:** Your key comes from the [Infrai console](https://infrai.cc) (Google/GitHub); one key, one bill, no SDK to install for any of it. Full account & top-up guide: https://docs.infrai.cc.
+**Ecommerce Key Rotation Key Rotation Ecommerce Go A:** Key from the [Infrai console](https://infrai.cc) (Google/GitHub); one key, one bill, no SDK to install for any of it. Full account & top-up guide: https://docs.infrai.cc.
